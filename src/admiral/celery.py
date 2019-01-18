@@ -20,6 +20,7 @@ import yaml
 
 CONFIG_FILE_ENV_KEY = 'CONFIG_FILE'
 CONFIG_SECTION_ENV_KEY = 'CONFIG_SECTION'
+WORKER_NAME_ENV_KEY = 'WORKER_NAME'
 DEFAULT_CONFIG_FILE = '/run/secrets/admiral_yml'
 DEFAULT_CONFIG_SECTION = 'default-section'
 
@@ -104,7 +105,9 @@ def main():
     if args['--interactive']:
         celery.start(argv=['celery', '-A', 'admiral', 'shell'])
     else:
-        celery.start(argv=['celery', '-A', 'admiral', 'worker', '-l', 'info'])
+        worker_name = env_value = os.environ.get(WORKER_NAME_ENV_KEY, 'unnamed')
+        celery.start(argv=['celery', '-A', 'admiral', 'worker', '-l', 'info',
+                    '-n', f'{worker_name}@%h'])
 
 if __name__ == '__main__':
     # running as a stand-alone application

@@ -61,6 +61,8 @@ services:
     init: true
     environment:
       CONFIG_FILE: '/run/secrets/admiral_yml'
+      CONFIG_SECTION: cert-worker
+      WORKER_NAME: cert
     secrets:
       - source: admiral_yml
     volumes: # map for development only, comment out otherwise
@@ -68,6 +70,25 @@ services:
     deploy:
       mode: replicated
       replicas: 6
+
+  scanner:
+    build:
+      context: .
+      dockerfile: Dockerfile-admiral
+    image: admiral
+    init: true
+    environment:
+      CONFIG_FILE: '/run/secrets/admiral_yml'
+      CONFIG_SECTION: scanner-worker
+      WORKER_NAME: scanner
+    secrets:
+      - source: admiral_yml
+    volumes: # map for development only, comment out otherwise
+     - ./src/admiral:/usr/src/admiral/admiral
+    deploy:
+      mode: replicated
+      replicas: 6
+
 
     # dark-scanner:
     #   build:
