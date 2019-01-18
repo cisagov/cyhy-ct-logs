@@ -1,0 +1,25 @@
+FROM python:3.6-alpine
+#TODO Can't use 3.7 until: https://github.com/celery/celery/issues/4849
+MAINTAINER Mark Feldhousen <mark.feldhousen@beta.dhs.gov>
+
+ARG CON_UID=421
+ARG INSTALL_IPYTHON="Yes Please"
+ARG CON_SRC="/usr/src"
+ENV CON_HOME="/home/con" \
+    CONFIG_FILE="/run/secrets/admiral_yml"
+
+RUN addgroup -S -g ${CON_UID} con && adduser -S -u ${CON_UID} -G con con && mkdir -p ${CON_HOME} && chown -R con:con ${CON_HOME}
+RUN apk update && apk add sudo nmap nmap-scripts
+RUN echo "con ALL=(root) NOPASSWD: /usr/bin/nmap" > /etc/sudoers.d/con_nmap && chmod 0440 /etc/sudoers.d/con_nmap
+RUN pip install --upgrade pip
+
+RUN if [ -n "${INSTALL_IPYTHON}" ]; then pip install ipython; fi
+
+WORKDIR ${CON_SRC}
+
+COPY src admiral
+RUN pip install -e admiral
+
+USER con
+WORKDIR ${CON_HOME}
+ENTRYPOINT ["admiral"]
