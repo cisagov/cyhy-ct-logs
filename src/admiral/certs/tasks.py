@@ -24,19 +24,22 @@ DOMAIN_NAME_RE = re.compile(
 def summary_by_domain(domain, subdomains=True, expired=False):
     # validate input
     m = DOMAIN_NAME_RE.match(domain)
-    logger.info(f'Fetching certs from CT log for domain: {domain}.')
     if m == None:
-        raise ValueError('invalid domain name format')
+        raise ValueError(f'invalid domain name format: {domain}')
 
     wildcard = '%.' if subdomains else ''
     expired = '' if expired else '&exclude=expired'
 
+    logger.info(f'Fetching certs from CT log for: {wildcard}{domain}')
     url = f'https://crt.sh/?Identity={wildcard}{domain}{expired}&output=json'
     # TODO: make two queries
     req = requests.get(url, headers={'User-Agent': 'cyhy/2.0.0'})
 
     if req.ok:
         data = json.loads(req.content)
+        if subdomains:
+            # a query for the unwildcarded domain needs to be made separately
+            data += summary_by_domain(domain, subdomains=False, expired=expired)
         return data
     else:
         req.raise_for_status()
