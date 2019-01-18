@@ -36,23 +36,11 @@ ns2 = port_scan.delay('10.28.20.200')
 a.backend.get(a.backend.get_key_for_task(a.id))
 ```
 
-
-Celery Magic
-===
-Get a result later:
-```
-In [23]: res = AsyncResult('7b1f10ae-fddc-4a79-9afc-4aaafb18623f')                                                                                            
-In [24]: res.get()                   
-Out[24]: 11
-```
-
 TODO
 ====
 * Make a shared task module -or-
   * make using send_task easy, or signatures
   * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.Celery.send_task
   * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.signature
-* The interactive mode is really what we want for a work producer
-* The non-interactive mode is our worker configuration
-* set task_send_sent_event for monitoring (added.)
 * monitor events and make a super sexy display
+* https://pypi.org/project/xmljson/ for nmap return data
