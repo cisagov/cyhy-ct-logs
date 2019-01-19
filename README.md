@@ -43,4 +43,3 @@ TODO
   * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.Celery.send_task
   * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.signature
 * monitor events and make a super sexy display
-* https://pypi.org/project/xmljson/ for nmap return data

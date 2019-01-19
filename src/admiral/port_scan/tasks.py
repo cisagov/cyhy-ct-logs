@@ -2,10 +2,12 @@ import sys
 import ipaddress
 import subprocess
 import traceback
+from xml.etree.ElementTree import fromstring
 
 from celery import shared_task, states
 from celery.utils.log import get_task_logger
 from celery.exceptions import Ignore
+from xmljson import badgerfish as bf
 
 logger = get_task_logger(__name__)
 
@@ -43,7 +45,9 @@ def up_scan(ip):
     ports = ','.join(str(i) for i in QUICK_PORTS)
     nmap_command = f'sudo nmap {v6_flag}{valid_ip} --stats-every 60 -oX - -n -sn -T4 --host-timeout 15m -PE -PP -PS{ports}'
     completed_process = run_it(nmap_command)
-    return completed_process.stdout.decode()
+    xml_string = completed_process.stdout.decode()
+    data = bf.data(fromstring(xml_string))
+    return data
 
 
 @shared_task(   autoretry_for=(Exception,),
@@ -57,4 +61,6 @@ def port_scan(ip):
     v6_flag = '-6 ' if valid_ip.version == 6 else ''
     nmap_command = f'sudo nmap {v6_flag}{valid_ip} --stats-every 60 -oX - -R -Pn -T4 --host-timeout 120m --max-scan-delay 5ms --max-retries 2 --min-parallelism 32 --defeat-rst-ratelimit -sV -O -sS -p1-65535'
     completed_process = run_it(nmap_command)
-    return completed_process.stdout.decode()
+    xml_string = completed_process.stdout.decode()
+    data = bf.data(fromstring(xml_string))
+    return data

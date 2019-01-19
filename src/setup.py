@@ -22,6 +22,7 @@ setup(
         "docopt >= 0.6.2",
         "PyYAML >= 3.12",
         "schedule >= 0.4.2",
-        "requests >= 2.21.0"
+        "requests >= 2.21.0",
+        "xmljson >= 0.2.0"
     ]
 )
