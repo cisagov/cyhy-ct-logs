@@ -1,17 +1,24 @@
 FROM python:3.6-alpine
 #TODO Can't use 3.7 until: https://github.com/celery/celery/issues/4849
-MAINTAINER Mark Feldhousen <mark.feldhousen@beta.dhs.gov>
+MAINTAINER Mark Feldhousen <mark.feldhousen@trio.dhs.gov>
 
 ARG CON_UID=421
 ARG INSTALL_IPYTHON="Yes Please"
 ARG CON_SRC="/usr/src"
 ENV CON_HOME="/home/con" \
-    CONFIG_FILE="/run/secrets/admiral_yml"
+    ADMIRAL_CONFIG_FILE="/run/secrets/admiral_yml" \
+    ADMIRAL_CONFIG_SECTION="dev-mode" \
+    ADMIRAL_WORKER_NAME="dev"
 
 RUN addgroup -S -g ${CON_UID} con && adduser -S -u ${CON_UID} -G con con && mkdir -p ${CON_HOME} && chown -R con:con ${CON_HOME}
 RUN apk update && apk add sudo nmap nmap-scripts
 RUN echo "con ALL=(root) NOPASSWD: /usr/bin/nmap" > /etc/sudoers.d/con_nmap && chmod 0440 /etc/sudoers.d/con_nmap
 RUN pip install --upgrade pip
+
+# compiler python cryptography package and cleanup
+RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev && \
+    pip install cryptography && \
+    apk del gcc # musl-dev python3-dev libffi-dev openssl-dev
 
 RUN if [ -n "${INSTALL_IPYTHON}" ]; then pip install ipython; fi
 

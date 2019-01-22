@@ -5,8 +5,6 @@ secrets:
     file: ./secrets/redis.conf
   admiral_yml:
     file: ./secrets/admiral.yml
-  dark_scanner_yml:
-    file: ./secrets/admiral.yml
 
 services:
   redis:
@@ -53,16 +51,16 @@ services:
     ports:
       - "5555:5555"
 
-  admiral:
+  cert-worker:
     build:
       context: .
       dockerfile: Dockerfile-admiral
     image: admiral
     init: true
     environment:
-      CONFIG_FILE: '/run/secrets/admiral_yml'
-      CONFIG_SECTION: cert-worker
-      WORKER_NAME: cert
+      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
+      ADMIRAL_CONFIG_SECTION: cert-worker
+      ADMIRAL_WORKER_NAME: cert
     secrets:
       - source: admiral_yml
     volumes: # map for development only, comment out otherwise
@@ -71,16 +69,16 @@ services:
       mode: replicated
       replicas: 6
 
-  scanner:
+  scanner-worker:
     build:
       context: .
       dockerfile: Dockerfile-admiral
     image: admiral
     init: true
     environment:
-      CONFIG_FILE: '/run/secrets/admiral_yml'
-      CONFIG_SECTION: scanner-worker
-      WORKER_NAME: scanner
+      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
+      ADMIRAL_CONFIG_SECTION: scanner-worker
+      ADMIRAL_WORKER_NAME: scanner
     secrets:
       - source: admiral_yml
     volumes: # map for development only, comment out otherwise
@@ -88,17 +86,3 @@ services:
     deploy:
       mode: replicated
       replicas: 6
-
-
-    # dark-scanner:
-    #   build:
-    #     context: .
-    #     dockerfile: Dockerfile-dark_scanner
-    #   image: dark-scanner
-    #   init: true
-    #   environment:
-    #     CONFIG_FILE: '/run/secrets/dark_scanner_yml'
-    #   secrets:
-    #     - source: dark_scheduler_yml
-    #   volumes: # map for development only, comment out otherwise
-    #    - ./dark_scanner/dark_scanner:/usr/src/dark_scanner/dark_scanner

@@ -1,45 +1,55 @@
 
-Swarming
-===
-`docker stack deploy admiral --compose-file docker-compose.yml`
+# Cyber Hygiene Distributed
 
-If you need no more than one replica of each service you can start the composition with:
+This project is a distributed implementation of the NCATS Cyber Hygiene system.
 
-`docker-compose up`
+## Status
 
-- Celery Flower:   http://localhost:5555
-- Mongo Express:   http://localhost:8081
-- Redis Commander: http://localhost:8082
+This project is currently under initial development.  The current focus is the implementation of certificate transparency monitoring.  
+
+## Requirements
+
+This project requires a [Docker](https://www.docker.com) installation.
+
+## Installation and Execution
+
+1. Build the docker image:
+  - `docker-compose build`
+1. Start the composition:
+  - `docker-compose up`
+  - alternately it can be started in [swarm mode](https://docs.docker.com/engine/swarm/): `docker stack deploy admiral --compose-file docker-compose.yml`
+1. Monitor the system:
+  - http://localhost:5555
 
 
-Debugging Tips
-===
+## Development and Debugging
 
-To get a shell in a running container:
+A separate `docker-compose-dev.yml` file is provided to support development and
+testing.  Using this composition, a container can be started in a few different modes:
 
-`docker-compose exec admiral /bin/sh`
+To start up an IPython session with a configured Celery app:
+
+`docker-compose -f docker-compose-dev.yml run celery-shell`
+
+To start up a development container with a bash shell:
+
+`docker-compose -f docker-compose-dev.yml run bash`
+
+To run all unit and system tests:
+
+`docker-compose -f docker-compose-dev.yml run test`
+
+Additional arguments can be passed to `pytest` when creating the container:
+
+`docker-compose -f docker-compose-dev.yml run test -vs tests/scan_test.py`
 
 To get a shell in a stopped or crashed container:
 
 `docker run -it --rm --entrypoint=sh admiral`
 
-Current debugging stuff
-```
-docker-compose exec admiral admiral -i
-from admiral.port_scan.tasks import *
-from admiral.certs.tasks import *
-summary = summary_by_domain.delay('cyber.dhs.gov')
-id = summary.wait()[0]['min_cert_id']
-first_cert = cert_by_id.delay(id)
-ns1 = up_scan.delay('10.28.20.200')
-ns2 = port_scan.delay('10.28.20.200')
-a.backend.get(a.backend.get_key_for_task(a.id))
-```
+## Monitoring
+The following web services are started for monitoring the underlying components:
 
-TODO
-====
-* Make a shared task module -or-
-  * make using send_task easy, or signatures
-  * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.Celery.send_task
-  * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.signature
-* monitor events and make a super sexy display
+- Celery Flower:   http://localhost:5555
+- Mongo Express:   http://localhost:8081
+- Redis Commander: http://localhost:8082
