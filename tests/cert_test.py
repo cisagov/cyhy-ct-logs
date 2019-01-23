@@ -33,3 +33,6 @@ class TestCerts:
 
         cert = x509.load_pem_x509_certificate(bytes(pem, 'utf-8'), default_backend())
         print(f'certificate serial number: {cert.serial_number}')
+        # cert.subject.get_attributes_for_oid(cryptography.x509.oid.NameOID.COMMON_NAME)[0].value
+        # alt_names = cert.extensions.get_extension_for_oid(cryptography.x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
+        # alt_names.get_values_for_type(cryptography.x509.DNSName)
