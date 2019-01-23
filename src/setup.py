@@ -26,6 +26,7 @@ setup(
         "xmljson >= 0.2.0",
         "cryptography >= 2.4.2",
         "dnspython",
+        "python-dateutil >= 2.7.5",
         "pytest >= 4.1.1",  #TODO get pip install -e to pickup tests_require
         "mock"
     ],
