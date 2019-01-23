@@ -27,11 +27,11 @@ def summary_by_domain(domain, subdomains=True, expired=False):
     if m == None:
         raise ValueError(f'invalid domain name format: {domain}')
 
-    wildcard = '%.' if subdomains else ''
-    expired = '' if expired else '&exclude=expired'
+    wildcard_param = '%.' if subdomains else ''
+    expired_param = '' if expired else '&exclude=expired'
 
-    logger.info(f'Fetching certs from CT log for: {wildcard}{domain}')
-    url = f'https://crt.sh/?Identity={wildcard}{domain}{expired}&output=json'
+    logger.info(f'Fetching certs from CT log for: {wildcard_param}{domain}')
+    url = f'https://crt.sh/?Identity={wildcard_param}{domain}{expired_param}&output=json'
     # TODO: make two queries
     req = requests.get(url, headers={'User-Agent': 'cyhy/2.0.0'})
 
