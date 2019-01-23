@@ -15,11 +15,17 @@ This project requires a [Docker](https://www.docker.com) installation.
 
 1. Build the docker image:
   - `docker-compose build`
-1. Start the composition:
+2. Change the credentials in the following configuration files:
+  - `secrets/admiral.yml`
+  - `secrets/redis.conf`
+  - `docker-compose.yml`
+3. Start the composition:
   - `docker-compose up`
   - alternately it can be started in [swarm mode](https://docs.docker.com/engine/swarm/): `docker stack deploy admiral --compose-file docker-compose.yml`
-1. Monitor the system:
+4. Monitor the system:
   - http://localhost:5555
+5. Optional: Run the code tests
+  - `docker-compose -f docker-compose-dev.yml run test`
 
 
 ## Development and Debugging
