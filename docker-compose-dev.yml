@@ -4,54 +4,32 @@ secrets:
   admiral_yml:
     file: ./secrets/admiral.yml
 
+x-admiral-template: &admiral-template
+  build:
+    context: .
+    dockerfile: Dockerfile-admiral
+  image: admiral
+  init: true
+  environment:
+    ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
+    ADMIRAL_CONFIG_SECTION: dev-mode
+    ADMIRAL_WORKER_NAME: dev
+  secrets:
+    - source: admiral_yml
+  volumes:
+   - ./src/admiral:/usr/src/admiral/admiral
+   - ./tests:/home/con/tests
+   - ./examples:/home/con/examples
+
 services:
   celery-shell:
-    build:
-      context: .
-      dockerfile: Dockerfile-admiral
-    image: admiral
-    init: true
+    <<: *admiral-template
     command: --interactive # drop into an ipython celery shell
-    environment:
-      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
-      ADMIRAL_CONFIG_SECTION: dev-mode
-      ADMIRAL_WORKER_NAME: dev
-    secrets:
-      - source: admiral_yml
-    volumes:
-     - ./src/admiral:/usr/src/admiral/admiral
-     - ./tests:/home/con/tests
 
   bash:
-    build:
-      context: .
-      dockerfile: Dockerfile-admiral
-    image: admiral
-    init: true
+    <<: *admiral-template
     entrypoint: /bin/sh
-    environment:
-      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
-      ADMIRAL_CONFIG_SECTION: dev-mode
-      ADMIRAL_WORKER_NAME: dev
-    secrets:
-      - source: admiral_yml
-    volumes:
-     - ./src/admiral:/usr/src/admiral/admiral
-     - ./tests:/home/con/tests
 
   test:
-    build:
-      context: .
-      dockerfile: Dockerfile-admiral
-    image: admiral
-    init: true
+    <<: *admiral-template
     entrypoint: pytest
-    environment:
-      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
-      ADMIRAL_CONFIG_SECTION: dev-mode
-      ADMIRAL_WORKER_NAME: dev
-    secrets:
-      - source: admiral_yml
-    volumes:
-     - ./src/admiral:/usr/src/admiral/admiral
-     - ./tests:/home/con/tests

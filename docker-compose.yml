@@ -6,6 +6,24 @@ secrets:
   admiral_yml:
     file: ./secrets/admiral.yml
 
+x-admiral-template: &admiral-template
+  build:
+    context: .
+    dockerfile: Dockerfile-admiral
+  image: admiral
+  init: true
+  environment:
+    ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
+    ADMIRAL_CONFIG_SECTION: dev-mode
+    ADMIRAL_WORKER_NAME: dev
+  secrets:
+    - source: admiral_yml
+  volumes: # map for development only, comment out otherwise
+   - ./src/admiral:/usr/src/admiral/admiral
+  deploy:
+    mode: replicated
+    replicas: 6
+
 services:
   redis:
     image: "redis:alpine"
@@ -52,37 +70,13 @@ services:
       - "5555:5555"
 
   cert-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile-admiral
-    image: admiral
-    init: true
+    <<: *admiral-template
     environment:
-      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
       ADMIRAL_CONFIG_SECTION: cert-worker
       ADMIRAL_WORKER_NAME: cert
-    secrets:
-      - source: admiral_yml
-    volumes: # map for development only, comment out otherwise
-     - ./src/admiral:/usr/src/admiral/admiral
-    deploy:
-      mode: replicated
-      replicas: 6
 
   scanner-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile-admiral
-    image: admiral
-    init: true
+    <<: *admiral-template
     environment:
-      ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
       ADMIRAL_CONFIG_SECTION: scanner-worker
       ADMIRAL_WORKER_NAME: scanner
-    secrets:
-      - source: admiral_yml
-    volumes: # map for development only, comment out otherwise
-     - ./src/admiral:/usr/src/admiral/admiral
-    deploy:
-      mode: replicated
-      replicas: 6
