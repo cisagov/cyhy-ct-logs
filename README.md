@@ -56,6 +56,7 @@ To get a shell in a stopped or crashed container:
 ## Monitoring
 The following web services are started for monitoring the underlying components:
 
+- CyHy API:        http://localhost:5000
 - Celery Flower:   http://localhost:5555
 - Mongo Express:   http://localhost:8081
 - Redis Commander: http://localhost:8082
