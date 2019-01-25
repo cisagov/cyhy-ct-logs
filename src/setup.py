@@ -28,6 +28,7 @@ setup(
         "dnspython",
         "python-dateutil >= 2.7.5",
         "pytest >= 4.1.1",  #TODO get pip install -e to pickup tests_require
+        "pymodm >= 0.4.1",
         "mock"
     ],
     # tests_require=[
