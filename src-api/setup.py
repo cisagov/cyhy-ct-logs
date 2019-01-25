@@ -8,11 +8,11 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     zip_safe=False,
-    # entry_points={
-    #     'console_scripts': [
-    #       'cyhy-api-server=cyhy_api.api:main',
-    #     ],
-    # },
+    entry_points={
+        'console_scripts': [
+          'cyhy-api-server=cyhy_api.api:main',
+        ],
+    },
     license='LICENSE.txt',
     description='Cyber Hygiene API Server',
     #long_description=open('README.md').read(),
