@@ -1,0 +1,30 @@
+FROM python:3.6-alpine
+#TODO Can't use 3.7 until: https://github.com/celery/celery/issues/4849
+MAINTAINER Mark Feldhousen <mark.feldhousen@trio.dhs.gov>
+
+ARG CON_UID=421
+ARG INSTALL_IPYTHON="Yes Please"
+ARG CON_SRC="/usr/src"
+ENV CON_HOME="/home/con" \
+    FLASK_APP="cyhy_api.api"
+
+RUN addgroup -S -g ${CON_UID} con && adduser -S -u ${CON_UID} -G con con && mkdir -p ${CON_HOME} && chown -R con:con ${CON_HOME}
+RUN apk update
+RUN pip install --upgrade pip
+
+# compiler python cryptography package and cleanup
+RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev && \
+    pip install cryptography && \
+    apk del gcc # musl-dev python3-dev libffi-dev openssl-dev
+
+RUN if [ -n "${INSTALL_IPYTHON}" ]; then pip install ipython; fi
+
+WORKDIR ${CON_SRC}
+
+COPY src-api cyhy_api
+RUN pip install -e cyhy_api
+
+USER con
+WORKDIR ${CON_HOME}
+EXPOSE 5000
+ENTRYPOINT ["flask","run","--host=0.0.0.0"]
