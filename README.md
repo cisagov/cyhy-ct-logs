@@ -49,6 +49,10 @@ Additional arguments can be passed to `pytest` when creating the container:
 
 `docker-compose -f docker-compose-dev.yml run test -vs tests/scan_test.py`
 
+To access a mongo shell:
+
+`docker-compose exec mongo mongo admin -u root -p`
+
 To get a shell in a stopped or crashed container:
 
 `docker run -it --rm --entrypoint=sh admiral`
