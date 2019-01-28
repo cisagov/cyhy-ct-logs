@@ -38,10 +38,12 @@ class Cert(MongoModel):
     class Meta:
         indexes = [IndexModel(keys=[
             ('issuer', ASCENDING),
-            ('serial', ASCENDING)], unique=True)]
+            ('serial', ASCENDING)], unique=True),
+            IndexModel(keys=[('subjects', ASCENDING)])]
         write_concern = WriteConcern(j=True)
         connection_alias = 'my-app'
         final = True
+
 
 class PreCert(MongoModel):
     log_id = fields.IntegerField(primary_key=True)
@@ -55,7 +57,8 @@ class PreCert(MongoModel):
     class Meta:
         indexes = [IndexModel(keys=[
             ('issuer', ASCENDING),
-            ('serial', ASCENDING)], unique=True)]
+            ('serial', ASCENDING)], unique=True),
+            IndexModel(keys=[('subjects', ASCENDING)])]
         write_concern = WriteConcern(j=True)
         connection_alias = 'my-app'
         collection_name = 'precert'
@@ -98,6 +101,7 @@ def make_cert_from_pem(pem):
     cert.subjects = dns_names
     return cert
 
+
 def cert_id_exists(log_id):
     c = Cert.objects.raw({'_id': log_id})
     if c.count() > 0:
@@ -106,6 +110,7 @@ def cert_id_exists(log_id):
     if c.count() > 0:
         return True
     return False
+
 
 def get_new_log_ids(domain):
     print(f'requesting certificate list for: {DOMAIN}')
