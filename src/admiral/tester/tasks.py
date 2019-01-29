@@ -6,10 +6,12 @@ import random
 
 logger = get_task_logger(__name__)
 
+
 @shared_task
 def add(x, y):
     logger.info('Adding {0} + {1}'.format(x, y))
     return x + y
+
 
 @shared_task
 def slow_add(x, y):
@@ -18,8 +20,9 @@ def slow_add(x, y):
     time.sleep(5)
     return r
 
+
 @shared_task
-def bad_add(x,y):
+def bad_add(x, y):
     r = slow_add(x, y)
     if random.choice([True, False]):
         logger.info('Failing on purpose')
@@ -27,12 +30,14 @@ def bad_add(x,y):
     else:
         return r
 
-@shared_task(   autoretry_for=(Exception,),
-                retry_backoff=True,
-                retry_jitter=True,
-                retry_kwargs={'max_retries': 3})
-def better_add(x,y):
-    return bad_add(x,y)
+
+@shared_task(autoretry_for=(Exception,),
+             retry_backoff=True,
+             retry_jitter=True,
+             retry_kwargs={'max_retries': 3})
+def better_add(x, y):
+    return bad_add(x, y)
+
 
 @shared_task
 def mul(x, y):

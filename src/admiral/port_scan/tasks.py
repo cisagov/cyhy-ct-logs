@@ -11,31 +11,34 @@ from xmljson import badgerfish as bf
 
 logger = get_task_logger(__name__)
 
-QUICK_PORTS = [443,80,1720,22,49152,21,53,61001,3479,25,62078,3389,8080,8008,8081,
-    9100,8010,4000,1248,248,175,8087,9010,9004,8111,4502,10800,7776,2770,9886]
+QUICK_PORTS = [443, 80, 1720, 22, 49152, 21, 53, 61001, 3479, 25, 62078, 3389, 8080, 8008, 8081,
+               9100, 8010, 4000, 1248, 248, 175, 8087, 9010, 9004, 8111, 4502, 10800, 7776, 2770, 9886]
+
 
 def run_it(command):
     logger.info(f'Executing command: {command}')
 
     try:
-        if sys.version_info >= (3,7):
-            #TODO: Cannot use capture_output until we are using python 3.7 (which currently breaks celery)
-            completed_process = subprocess.run(command, capture_output=True, shell=True, check=True)
+        if sys.version_info >= (3, 7):
+            # TODO: Cannot use capture_output until we are using python 3.7 (which currently breaks celery)
+            completed_process = subprocess.run(
+                command, capture_output=True, shell=True, check=True)
         else:
-            #python 3.6 version
-            completed_process = subprocess.run(command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, check=True)
+            # python 3.6 version
+            completed_process = subprocess.run(
+                command, stderr=subprocess.PIPE, stdout=subprocess.PIPE, shell=True, check=True)
     except subprocess.CalledProcessError as err:
-        #TODO: Log stderr since it is empty when reconstituted on the far side. Perhaps this will work in python 3.7
+        # TODO: Log stderr since it is empty when reconstituted on the far side. Perhaps this will work in python 3.7
         logger.error(err.stderr.decode())
         raise err
 
     return completed_process
 
 
-@shared_task(   autoretry_for=(Exception,),
-                retry_backoff=True,
-                retry_jitter=True,
-                retry_kwargs={'max_retries': 3})
+@shared_task(autoretry_for=(Exception,),
+             retry_backoff=True,
+             retry_jitter=True,
+             retry_kwargs={'max_retries': 3})
 def up_scan(ip):
     # validate input
     valid_ip = ipaddress.ip_address(ip)
@@ -50,10 +53,10 @@ def up_scan(ip):
     return data
 
 
-@shared_task(   autoretry_for=(Exception,),
-                retry_backoff=True,
-                retry_jitter=True,
-                retry_kwargs={'max_retries': 3})
+@shared_task(autoretry_for=(Exception,),
+             retry_backoff=True,
+             retry_jitter=True,
+             retry_kwargs={'max_retries': 3})
 def port_scan(ip):
     # validate input
     valid_ip = ipaddress.ip_address(ip)

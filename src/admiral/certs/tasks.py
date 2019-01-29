@@ -17,10 +17,11 @@ DOMAIN_NAME_RE = re.compile(
     r'([a-z0-9]{2,63}|(?:[a-z0-9][a-z0-9\-]{0,61}[a-z0-9]))\.?$'
 )
 
-@shared_task(   autoretry_for=(Exception,requests.HTTPError),
-                retry_backoff=True,
-                retry_jitter=True,
-                retry_kwargs={'max_retries': 3})
+
+@shared_task(autoretry_for=(Exception, requests.HTTPError),
+             retry_backoff=True,
+             retry_jitter=True,
+             retry_kwargs={'max_retries': 3})
 def summary_by_domain(domain, subdomains=True, expired=False):
     # validate input
     m = DOMAIN_NAME_RE.match(domain)
@@ -39,15 +40,17 @@ def summary_by_domain(domain, subdomains=True, expired=False):
         data = json.loads(req.content)
         if subdomains:
             # a query for the unwildcarded domain needs to be made separately
-            data += summary_by_domain(domain, subdomains=False, expired=expired)
+            data += summary_by_domain(domain,
+                                      subdomains=False, expired=expired)
         return data
     else:
         req.raise_for_status()
 
-@shared_task(   autoretry_for=(Exception,requests.HTTPError),
-                retry_backoff=True,
-                retry_jitter=True,
-                retry_kwargs={'max_retries': 3})
+
+@shared_task(autoretry_for=(Exception, requests.HTTPError),
+             retry_backoff=True,
+             retry_jitter=True,
+             retry_kwargs={'max_retries': 3})
 def cert_by_id(id):
     logger.info(f'Fetching cert data from CT log for id: {id}.')
 
