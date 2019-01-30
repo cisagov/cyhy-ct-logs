@@ -181,13 +181,7 @@ def main():
         cert = make_cert_from_pem(pem)
         cert.log_id = log_id
         cert.save()
-    cert = Cert.objects.get({'_id': 1017984548}).x509()
-    scts = cert.extensions.get_extension_for_class(
-        x509.PrecertificateSignedCertificateTimestamps).value
-    for sct in scts:
-        print(sct.timestamp)
-    import IPython
-    IPython.embed()  # <<< BREAKPOINT >>>
+    import IPython;IPython.embed()  # <<< BREAKPOINT >>>
 
 
 if __name__ == '__main__':
