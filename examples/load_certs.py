@@ -20,11 +20,10 @@ from admiral.certs.tasks import summary_by_domain, cert_by_id
 PP = pprint.PrettyPrinter(indent=4)
 PRETTY_NEW = timedelta(days=30)
 ALMOST_EXPIRED = timedelta(days=30)
-DOMAIN = 'us-cert.gov'
+DOMAIN = 'cyber.dhs.gov'
 
 
 # https://tools.ietf.org/html/rfc5280#section-4.1.2.2
-
 
 class Cert(MongoModel):
     log_id = fields.IntegerField(primary_key=True)
@@ -32,8 +31,13 @@ class Cert(MongoModel):
     issuer = fields.CharField()
     not_before = fields.DateTimeField()
     not_after = fields.DateTimeField()
+    sct_or_not_before = fields.DateTimeField()
+    sct_exists = fields.BooleanField()
     pem = fields.CharField()
     subjects = fields.ListField(fields.CharField())
+
+    def x509(self):
+        return x509.load_pem_x509_certificate(bytes(self.pem, 'utf-8'), default_backend())
 
     class Meta:
         indexes = [IndexModel(keys=[
@@ -51,8 +55,13 @@ class PreCert(MongoModel):
     issuer = fields.CharField()
     not_before = fields.DateTimeField()
     not_after = fields.DateTimeField()
+    sct_or_not_before = fields.DateTimeField()
+    sct_exists = fields.BooleanField()
     pem = fields.CharField()
     subjects = fields.ListField(fields.CharField())
+
+    def x509(self):
+        return x509.load_pem_x509_certificate(bytes(self.pem, 'utf-8'), default_backend())
 
     class Meta:
         indexes = [IndexModel(keys=[
@@ -65,38 +74,74 @@ class PreCert(MongoModel):
         final = True
 
 
-def make_cert_from_pem(pem):
-    x = x509.load_pem_x509_certificate(bytes(pem, 'utf-8'), default_backend())
-    cn = x.subject.get_attributes_for_oid(
-        x509.oid.NameOID.COMMON_NAME)[0].value
+class Domain(MongoModel):
+    domain = fields.CharField(primary_key=True)
+
+
+def get_earliest_sct(xcert):
+    '''Calculate the earliest time this certificate was logged to a CT log.
+    If it was not logged by the CA, then the not_before time is returned.
+
+    Returns (datetime, bool):
+        datetime: the earliest calculated date.
+        bool: True if an SCT was used, False otherwise
+    '''
     try:
-        san = x.extensions.get_extension_for_oid(
+        earliest = datetime.max
+        scts = xcert.extensions.get_extension_for_class(
+            x509.PrecertificateSignedCertificateTimestamps).value
+        for sct in scts:
+            earliest = min(earliest, sct.timestamp)
+        return earliest, True
+    except x509.extensions.ExtensionNotFound:
+        return xcert.not_valid_before, False
+
+
+def is_poisioned(xcert):
+    try:
+        xcert.extensions.get_extension_for_oid(
+            x509.oid.ExtensionOID.PRECERT_POISON)
+        return True
+    except x509.extensions.ExtensionNotFound:
+        return False
+
+
+def get_sans_set(xcert):
+    try:
+        san = xcert.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
         dns_names = set(san.get_values_for_type(x509.DNSName))
-    except x509.extensions.ExtensionNotFound:  # craptacular interface you got there
+    except x509.extensions.ExtensionNotFound:
         dns_names = set()
-    try:
-        x.extensions.get_extension_for_oid(
-            x509.oid.ExtensionOID.PRECERT_POISON)
-        precert_poison = True
-    except x509.extensions.ExtensionNotFound:  # craptacular interface you got there
-        precert_poison = False
+    cn = xcert.subject.get_attributes_for_oid(
+        x509.oid.NameOID.COMMON_NAME)[0].value
+
     # TODO make sure the cn is a correct type
     # what the hell is going on here: https://crt.sh/?id=174654356
-    # make sure the cn is in the dns_names
+    # ensure the cn is in the dns_names
     dns_names.add(cn)
+    return dns_names
 
-    # build a Cert Model object
-    if precert_poison:
+
+def make_cert_from_pem(pem):
+    xcert = x509.load_pem_x509_certificate(
+        bytes(pem, 'utf-8'), default_backend())
+    dns_names = get_sans_set(xcert)
+
+    # use separate collections for precerts and certs
+    if is_poisioned(xcert):
         cert = PreCert()
     else:
         cert = Cert()
 
-    cert.serial = hex(x.serial_number)[2:]
-    cert.precert = precert_poison
-    cert.issuer = x.issuer.rfc4514_string()
-    cert.not_before = x.not_valid_before
-    cert.not_after = x.not_valid_after
+    sct_or_not_before, sct_exists = get_earliest_sct(xcert)
+
+    cert.serial = hex(xcert.serial_number)[2:]
+    cert.issuer = xcert.issuer.rfc4514_string()
+    cert.not_before = xcert.not_valid_before
+    cert.not_after = xcert.not_valid_after
+    cert.sct_or_not_before = sct_or_not_before
+    cert.sct_exists = sct_exists
     cert.pem = pem
     cert.subjects = dns_names
     return cert
@@ -136,6 +181,11 @@ def main():
         cert = make_cert_from_pem(pem)
         cert.log_id = log_id
         cert.save()
+    cert = Cert.objects.get({'_id': 1017984548}).x509()
+    scts = cert.extensions.get_extension_for_class(
+        x509.PrecertificateSignedCertificateTimestamps).value
+    for sct in scts:
+        print(sct.timestamp)
     import IPython
     IPython.embed()  # <<< BREAKPOINT >>>
 
