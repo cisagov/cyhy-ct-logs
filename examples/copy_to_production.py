@@ -13,15 +13,13 @@ def main():
     all_certs = Cert.objects.all()
     for cert in tqdm(all_certs, total=all_certs.count(), desc='Copy', unit='certs'):
         with context_managers.switch_connection(Cert, 'production'):
-            #cert.save()
-            pass
+            cert.save()
     # Copy all documents from precerts collection
     with context_managers.switch_collection(Cert, 'precerts'):
         all_certs = Cert.objects.all()
         for cert in tqdm(all_certs, total=all_certs.count(), desc='Copy', unit='precerts'):
             with context_managers.switch_connection(Cert, 'production'):
-                #cert.save()
-                pass
+                cert.save()
 
 
 if __name__ == '__main__':
