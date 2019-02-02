@@ -57,6 +57,10 @@ To get a shell in a stopped or crashed container:
 
 `docker run -it --rm --entrypoint=sh admiral`
 
+To protect against inadvertent commit of secrets to the repository:
+
+`git update-index --assume-unchanged secrets/*`
+
 ## Monitoring
 The following web services are started for monitoring the underlying components:
 
