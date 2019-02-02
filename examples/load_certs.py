@@ -1,81 +1,38 @@
 #!/usr/bin/env python3
 
+from models import Cert, Agency, Domain
+from util import connect_from_config
+
+import sys
+import time
 import pprint
 from datetime import datetime, timedelta
-from collections import defaultdict
+
+from tqdm import tqdm
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 import dateutil.parser as parser
 
 from pymodm.connection import connect
-from pymodm import MongoModel, fields
-from pymongo.write_concern import WriteConcern
-from pymongo.operations import IndexModel
-from pymongo import ASCENDING
+from pymodm import context_managers
 
 from admiral.celery import celery
 from admiral.certs.tasks import summary_by_domain, cert_by_id
+from celery import group
 
 PP = pprint.PrettyPrinter(indent=4)
-PRETTY_NEW = timedelta(days=30)
-ALMOST_EXPIRED = timedelta(days=30)
-DOMAIN = 'cyber.dhs.gov'
+MAX_EXPIRED_DELTA = timedelta(days=30)
 
 
-# https://tools.ietf.org/html/rfc5280#section-4.1.2.2
-
-class Cert(MongoModel):
-    log_id = fields.IntegerField(primary_key=True)
-    serial = fields.CharField()  # 20 octets
-    issuer = fields.CharField()
-    not_before = fields.DateTimeField()
-    not_after = fields.DateTimeField()
-    sct_or_not_before = fields.DateTimeField()
-    sct_exists = fields.BooleanField()
-    pem = fields.CharField()
-    subjects = fields.ListField(fields.CharField())
-
-    def x509(self):
-        return x509.load_pem_x509_certificate(bytes(self.pem, 'utf-8'), default_backend())
-
-    class Meta:
-        indexes = [IndexModel(keys=[
-            ('issuer', ASCENDING),
-            ('serial', ASCENDING)], unique=True),
-            IndexModel(keys=[('subjects', ASCENDING)])]
-        write_concern = WriteConcern(j=True)
-        connection_alias = 'my-app'
-        final = True
-
-
-class PreCert(MongoModel):
-    log_id = fields.IntegerField(primary_key=True)
-    serial = fields.CharField()  # 20 octets
-    issuer = fields.CharField()
-    not_before = fields.DateTimeField()
-    not_after = fields.DateTimeField()
-    sct_or_not_before = fields.DateTimeField()
-    sct_exists = fields.BooleanField()
-    pem = fields.CharField()
-    subjects = fields.ListField(fields.CharField())
-
-    def x509(self):
-        return x509.load_pem_x509_certificate(bytes(self.pem, 'utf-8'), default_backend())
-
-    class Meta:
-        indexes = [IndexModel(keys=[
-            ('issuer', ASCENDING),
-            ('serial', ASCENDING)], unique=True),
-            IndexModel(keys=[('subjects', ASCENDING)])]
-        write_concern = WriteConcern(j=True)
-        connection_alias = 'my-app'
-        collection_name = 'precert'
-        final = True
-
-
-class Domain(MongoModel):
-    domain = fields.CharField(primary_key=True)
+def trim_domains(domains):  # TODO make this more robust
+    trimmed = set()
+    for domain in domains:
+        if domain.endswith('.fed.us'):
+            trimmed.add('.'.join(domain.split('.')[-3:]))
+        else:
+            trimmed.add('.'.join(domain.split('.')[-2:]))
+    return trimmed
 
 
 def get_earliest_sct(xcert):
@@ -113,13 +70,12 @@ def get_sans_set(xcert):
         dns_names = set(san.get_values_for_type(x509.DNSName))
     except x509.extensions.ExtensionNotFound:
         dns_names = set()
-    cn = xcert.subject.get_attributes_for_oid(
-        x509.oid.NameOID.COMMON_NAME)[0].value
-
-    # TODO make sure the cn is a correct type
-    # what the hell is going on here: https://crt.sh/?id=174654356
-    # ensure the cn is in the dns_names
-    dns_names.add(cn)
+    # not all subjects have CNs: https://crt.sh/?id=1009394371
+    for cn in xcert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME):
+        # TODO make sure the cn is a correct type
+        # what the hell is going on here: https://crt.sh/?id=174654356
+        # ensure the cn is in the dns_names
+        dns_names.add(cn.value)
     return dns_names
 
 
@@ -128,14 +84,9 @@ def make_cert_from_pem(pem):
         bytes(pem, 'utf-8'), default_backend())
     dns_names = get_sans_set(xcert)
 
-    # use separate collections for precerts and certs
-    if is_poisioned(xcert):
-        cert = PreCert()
-    else:
-        cert = Cert()
-
     sct_or_not_before, sct_exists = get_earliest_sct(xcert)
 
+    cert = Cert()
     cert.serial = hex(xcert.serial_number)[2:]
     cert.issuer = xcert.issuer.rfc4514_string()
     cert.not_before = xcert.not_valid_before
@@ -144,44 +95,92 @@ def make_cert_from_pem(pem):
     cert.sct_exists = sct_exists
     cert.pem = pem
     cert.subjects = dns_names
-    return cert
+    cert.trimmed_subjects = trim_domains(dns_names)
+    return cert, is_poisioned(xcert)
 
 
-def cert_id_exists(log_id):
+def cert_id_exists_in_database(log_id):
     c = Cert.objects.raw({'_id': log_id})
     if c.count() > 0:
         return True
-    c = PreCert.objects.raw({'_id': log_id})
-    if c.count() > 0:
-        return True
+    with context_managers.switch_collection(Cert, 'precerts'):
+        c = Cert.objects.raw({'_id': log_id})
+        if c.count() > 0:
+            return True
     return False
 
 
-def get_new_log_ids(domain):
-    print(f'requesting certificate list for: {DOMAIN}')
-    cert_list = summary_by_domain.delay(DOMAIN, subdomains=True)
+def get_new_log_ids(domain, max_expired_date):
+    tqdm.write(f'requesting certificate list for: {domain}')
+    expired = domain != 'nasa.gov'  # NASA is breaking the CT Log
+    cert_list = summary_by_domain.delay(
+        domain, subdomains=True, expired=expired)
     cert_list = cert_list.get()
-    for i in cert_list:
+    duplicate_log_ids = set()
+    for i in tqdm(cert_list, desc='Subjects', unit='entries'):
         log_id = i['min_cert_id']
-        print(f'processing log_id: {log_id}... ', end='')
+        cert_expiration_date = parser.parse(i['not_after'])
+        tqdm.write(
+            f'id: {log_id}:\tex: {cert_expiration_date}\t{i["name_value"]}...\t', end='')
+        if cert_expiration_date < max_expired_date:
+            tqdm.write('too old')
+            continue
         # check to see if we have this certificate already
-        if cert_id_exists(log_id):
+        if log_id in duplicate_log_ids or cert_id_exists_in_database(log_id):
             # we already have it, skip
-            print('skipping')
+            duplicate_log_ids.add(log_id)
+            tqdm.write('duplicate')
+            continue
         else:
+            duplicate_log_ids.add(log_id)
+            tqdm.write('will import')
             yield(log_id)
-            print('done')
+
+
+def group_update_domain(domain, max_expired_date):
+    signatures = []
+    for log_id in get_new_log_ids(domain.domain, max_expired_date):
+        signatures.append(cert_by_id.s(log_id))
+    with tqdm(total=len(signatures), desc='Certs', unit='certs') as pbar:
+        job = group(signatures)
+        results = job.apply_async()
+        while not results.ready():
+            pbar.update(results.completed_count() - pbar.n)
+            time.sleep(0.5)
+
+    tasks_to_results = zip(job.tasks, results.join())
+    for task, pem in tasks_to_results:
+        cert, is_precert = make_cert_from_pem(pem)
+        cert.log_id = task.get('args')[0]  # get log_id from task
+        if is_precert:
+            # if this is a precert, we save to the precert collection
+            with context_managers.switch_collection(Cert, 'precerts'):
+                cert.save()
+        else:
+            cert.save()
 
 
 def main():
-    connect("mongodb://logger:example@mongo:27017/certs", alias="my-app")
-    for log_id in get_new_log_ids(DOMAIN):
-        pem = cert_by_id.delay(log_id)
-        pem = pem.get()
-        cert = make_cert_from_pem(pem)
-        cert.log_id = log_id
-        cert.save()
-    import IPython;IPython.embed()  # <<< BREAKPOINT >>>
+    connect_from_config()
+
+    # we don't want certs before this date.  They're too old.
+    max_expired_date = datetime.utcnow() - MAX_EXPIRED_DELTA
+
+    query_set = Domain.objects.all()
+    print(f'{query_set.count()} domains to process')
+    # TODO set batch_size lower, cursor is timing out
+    domains = list(query_set.all())
+    c = 0
+    skip_to = 0
+    for domain in tqdm(domains[0:1], desc='Domains', unit='domain'):
+        c += 1
+        if c < skip_to:
+            continue
+        tqdm.write('-' * 40)
+        tqdm.write(f'domain #{c}')
+        group_update_domain(domain, max_expired_date)
+
+    import IPython; IPython.embed()  # <<< BREAKPOINT >>>
 
 
 if __name__ == '__main__':
