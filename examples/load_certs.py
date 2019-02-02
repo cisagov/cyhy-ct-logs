@@ -172,7 +172,7 @@ def main():
     domains = list(query_set.all())
     c = 0
     skip_to = 0
-    for domain in tqdm(domains[0:1], desc='Domains', unit='domain'):
+    for domain in tqdm(domains, desc='Domains', unit='domain'):
         c += 1
         if c < skip_to:
             continue
