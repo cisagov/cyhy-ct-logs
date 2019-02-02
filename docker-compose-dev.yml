@@ -3,6 +3,8 @@ version: "3.7"
 secrets:
   admiral_yml:
     file: ./secrets/admiral.yml
+  mongo_yml:
+    file: ./secrets/mongo.yml
 
 x-admiral-template: &admiral-template
   build:
@@ -29,6 +31,9 @@ services:
   bash:
     <<: *admiral-template
     entrypoint: /bin/sh
+    secrets:
+      - source: admiral_yml
+      - source: mongo_yml
 
   test:
     <<: *admiral-template
