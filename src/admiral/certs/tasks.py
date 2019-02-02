@@ -18,10 +18,10 @@ DOMAIN_NAME_RE = re.compile(
 )
 
 
-@shared_task(autoretry_for=(Exception, requests.HTTPError),
+@shared_task(autoretry_for=(Exception, requests.HTTPError, requests.exceptions.HTTPError),
              retry_backoff=True,
              retry_jitter=True,
-             retry_kwargs={'max_retries': 3})
+             retry_kwargs={'max_retries': 8})
 def summary_by_domain(domain, subdomains=True, expired=False):
     # validate input
     m = DOMAIN_NAME_RE.match(domain)
@@ -47,10 +47,10 @@ def summary_by_domain(domain, subdomains=True, expired=False):
         req.raise_for_status()
 
 
-@shared_task(autoretry_for=(Exception, requests.HTTPError),
+@shared_task(autoretry_for=(Exception, requests.HTTPError, requests.exceptions.HTTPError),
              retry_backoff=True,
              retry_jitter=True,
-             retry_kwargs={'max_retries': 3})
+             retry_kwargs={'max_retries': 8})
 def cert_by_id(id):
     logger.info(f'Fetching cert data from CT log for id: {id}.')
 
