@@ -158,6 +158,7 @@ def group_update_domain(domain, max_expired_date):
                 cert.save()
         else:
             cert.save()
+    return len(job.tasks)
 
 
 def main():
@@ -172,13 +173,17 @@ def main():
     domains = list(query_set.all())
     c = 0
     skip_to = 0
+    total_new_count = 0
     for domain in tqdm(domains, desc='Domains', unit='domain'):
         c += 1
         if c < skip_to:
             continue
-        tqdm.write('-' * 40)
+        tqdm.write('-' * 80)
         tqdm.write(f'domain #{c}')
-        group_update_domain(domain, max_expired_date)
+        new_count = group_update_domain(domain, max_expired_date)
+        total_new_count += new_count
+        tqdm.write(f'{new_count} certificates were imported for {domain.domain}')
+    print(f'{total_new_count} certificates were imported for {len(domains)} domains.')
 
     import IPython; IPython.embed()  # <<< BREAKPOINT >>>
 
