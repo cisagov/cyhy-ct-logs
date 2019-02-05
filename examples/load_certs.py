@@ -22,7 +22,7 @@ from admiral.certs.tasks import summary_by_domain, cert_by_id
 from celery import group
 
 PP = pprint.PrettyPrinter(indent=4)
-MAX_EXPIRED_DELTA = timedelta(days=30)
+EARLIEST_EXPIRED_DATE = parser.parse('2018-10-01')
 
 
 def trim_domains(domains):  # TODO make this more robust
@@ -165,7 +165,6 @@ def main():
     connect_from_config()
 
     # we don't want certs before this date.  They're too old.
-    max_expired_date = datetime.utcnow() - MAX_EXPIRED_DELTA
 
     query_set = Domain.objects.all()
     print(f'{query_set.count()} domains to process')
@@ -180,7 +179,7 @@ def main():
             continue
         tqdm.write('-' * 80)
         tqdm.write(f'domain #{c}')
-        new_count = group_update_domain(domain, max_expired_date)
+        new_count = group_update_domain(domain, EARLIEST_EXPIRED_DATE)
         total_new_count += new_count
         tqdm.write(f'{new_count} certificates were imported for {domain.domain}')
     print(f'{total_new_count} certificates were imported for {len(domains)} domains.')
