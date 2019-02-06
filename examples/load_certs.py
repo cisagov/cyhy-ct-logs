@@ -28,6 +28,7 @@ EARLIEST_EXPIRED_DATE = parser.parse('2018-10-01')
 def trim_domains(domains):  # TODO make this more robust
     trimmed = set()
     for domain in domains:
+        domain = domain.lower()     # Ensure all domains are lowercase
         if domain.endswith('.fed.us'):
             trimmed.add('.'.join(domain.split('.')[-3:]))
         else:
