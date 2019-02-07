@@ -1,30 +1,34 @@
 #!/usr/bin/env python3
-'''load-certs: A tool to download certificates from certificate transparency logsself.
-'''
-from datetime import datetime, timedelta
+
+"""load-certs: A tool to download certificates from CT logs.
+
+This is the sample of a tool to download CT Logs via celery tasks and store
+them in a mongo database.
+"""
+from datetime import datetime
 import pprint
-import sys
 import time
 
-from admiral.celery import celery
+from admiral.celery import celery  # noqa: F401, inits on import
 from admiral.certs.tasks import summary_by_domain, cert_by_id
 from celery import group
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 import dateutil.parser as parser
-from pymodm.connection import connect
 from pymodm import context_managers
 from tqdm import tqdm
 
-from models import Cert, Agency, Domain
+from models import Cert, Domain
 from util import connect_from_config
 
 # Globals
 PP = pprint.PrettyPrinter(indent=4)
 EARLIEST_EXPIRED_DATE = parser.parse('2018-10-01')
 
+
 def get_earliest_sct(xcert):
-    '''Calculate the earliest time this certificate was logged to a CT log.
+    """Calculate the earliest time this certificate was logged to a CT log.
+
     If it was not logged by the CA, then the not_before time is returned.
 
     Arguments:
@@ -33,7 +37,7 @@ def get_earliest_sct(xcert):
     Returns (datetime, bool):
         datetime: the earliest calculated date.
         bool: True if an SCT was used, False otherwise
-    '''
+    """
     try:
         earliest = datetime.max
         scts = xcert.extensions.get_extension_for_class(
@@ -46,11 +50,11 @@ def get_earliest_sct(xcert):
 
 
 def is_poisioned(xcert):
-    '''Determine if an x509 certificate has a precertificate poision extensions.
+    """Determine if an x509 certificate has a precertificate poision extensions.
 
     Arguments:
     xcert -- an x509 certificate object
-    '''
+    """
     try:
         xcert.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.PRECERT_POISON)
@@ -60,13 +64,13 @@ def is_poisioned(xcert):
 
 
 def get_sans_set(xcert):
-    '''Extract the set of subjects from the SAN extension.
+    """Extract the set of subjects from the SAN extension.
 
     Arguments:
     xcert -- an x509 certificate object
 
     Returns a set of strings containing the subjects
-    '''
+    """
     try:
         san = xcert.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
@@ -74,7 +78,8 @@ def get_sans_set(xcert):
     except x509.extensions.ExtensionNotFound:
         dns_names = set()
     # not all subjects have CNs: https://crt.sh/?id=1009394371
-    for cn in xcert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME):
+    for cn in xcert.subject.get_attributes_for_oid(
+            x509.oid.NameOID.COMMON_NAME):
         # TODO make sure the cn is a correct type
         # what the hell is going on here: https://crt.sh/?id=174654356
         # ensure the cn is in the dns_names
@@ -83,7 +88,7 @@ def get_sans_set(xcert):
 
 
 def make_cert_from_pem(pem):
-    '''Creates a Cert model object from a PEM certificate string.
+    """Create a Cert model object from a PEM certificate string.
 
     Arguments:
     pem -- PEM encoded certificate
@@ -91,7 +96,7 @@ def make_cert_from_pem(pem):
     Returns (cert, precert):
         cert: an x509 certificate object
         precert: a boolean, True if this is a precertificate, False otherwise
-    '''
+    """
     xcert = x509.load_pem_x509_certificate(
         bytes(pem, 'utf-8'), default_backend())
     dns_names = get_sans_set(xcert)
@@ -111,11 +116,10 @@ def make_cert_from_pem(pem):
 
 
 def cert_id_exists_in_database(log_id):
-    '''Checks if a CT log ID already exists in the either of the certificate
-    collectionsself.
+    """Check if a  ID already exists in the either certificate collection.
 
     Returns True if the id exists, False otherwise
-    '''
+    """
     c = Cert.objects.raw({'_id': log_id})
     if c.count() > 0:
         return True
@@ -127,15 +131,14 @@ def cert_id_exists_in_database(log_id):
 
 
 def get_new_log_ids(domain, max_expired_date):
-    '''Generates a sequence of new CT Log IDs for a given domain, and exipration
-    window.
+    """Generate a sequence of new CT Log IDs.
 
     Arguments:
     domain -- the domain name to query
     max_expired_date -- a date to filter out expired certificates
 
     Yields a sequence of new, unique, log IDs.
-    '''
+    """
     tqdm.write(f'requesting certificate list for: {domain}')
     expired = domain != 'nasa.gov'  # NASA is breaking the CT Log
     cert_list = summary_by_domain.delay(
@@ -145,8 +148,8 @@ def get_new_log_ids(domain, max_expired_date):
     for i in tqdm(cert_list, desc='Subjects', unit='entries'):
         log_id = i['min_cert_id']
         cert_expiration_date = parser.parse(i['not_after'])
-        tqdm.write(
-            f'id: {log_id}:\tex: {cert_expiration_date}\t{i["name_value"]}...\t', end='')
+        tqdm.write(f'id: {log_id}:\tex: {cert_expiration_date}\t'
+                   f'{i["name_value"]}...\t', end='')
         if cert_expiration_date < max_expired_date:
             tqdm.write('too old')
             continue
@@ -163,15 +166,14 @@ def get_new_log_ids(domain, max_expired_date):
 
 
 def group_update_domain(domain, max_expired_date):
-    '''Creates tasks to download all new certificates that expire after
-    max_expired_date in parallel.
+    """Create parallel tasks to download all new certificates with date filter.
 
     Arguments:
     domain -- domain name to query
     max_expired_date -- a date to filter out expired certificates
 
     Returns the number of certificates imported.
-    '''
+    """
     signatures = []
     for log_id in get_new_log_ids(domain.domain, max_expired_date):
         signatures.append(cert_by_id.s(log_id))
@@ -196,6 +198,7 @@ def group_update_domain(domain, max_expired_date):
 
 
 def main():
+    """Start of program."""
     connect_from_config()
     with context_managers.switch_connection(Domain, 'production'):
         query_set = Domain.objects.all()
@@ -215,9 +218,10 @@ def main():
             total_new_count += new_count
             tqdm.write(
                 f'{new_count} certificates were imported for {domain.domain}')
-        print(f'{total_new_count} certificates were imported for {len(domains)} domains.')
+        print(f'{total_new_count} certificates were imported for'
+              f'{len(domains)} domains.')
 
-        import IPython; IPython.embed()  # <<< BREAKPOINT >>>
+        import IPython; IPython.embed()  # noqa: E702 <<< BREAKPOINT >>>
 
 
 if __name__ == '__main__':
