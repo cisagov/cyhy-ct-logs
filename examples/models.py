@@ -6,6 +6,8 @@ from pymongo.write_concern import WriteConcern
 from pymongo.operations import IndexModel
 from pymongo import ASCENDING
 
+from util import trim_domains
+
 # https://tools.ietf.org/html/rfc5280#section-4.1.2.2
 
 class Cert(MongoModel):
@@ -20,7 +22,14 @@ class Cert(MongoModel):
     subjects = fields.ListField(fields.CharField())
     trimmed_subjects = fields.ListField(fields.CharField())
 
-    def x509(self):
+    def save(self, *args, **kwargs):
+        # ensure all subjects are lowercase and unique
+        self.subjects = {i.lower() for i in self.subjects}
+        # calculate the correct value of trimmed_subjects
+        self.trimmed_subjects = trim_domains(self.subjects)
+        super().save(*args, **kwargs)
+
+    def to_x509(self):
         return x509.load_pem_x509_certificate(bytes(self.pem, 'utf-8'), default_backend())
 
     class Meta:
@@ -30,7 +39,6 @@ class Cert(MongoModel):
             IndexModel(keys=[('subjects', ASCENDING)]),
             IndexModel(keys=[('trimmed_subjects', ASCENDING)])]
         write_concern = WriteConcern(j=True)
-        connection_alias = 'local'
         collection_name = 'certs'
         final = True
 
@@ -51,6 +59,5 @@ class Domain(MongoModel):
 
     class Meta:
         write_concern = WriteConcern(j=True)
-        connection_alias = 'production'
         collection_name = 'domains'
         final = True
