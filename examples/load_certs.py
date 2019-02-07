@@ -1,31 +1,37 @@
 #!/usr/bin/env python3
-
-from models import Cert, Agency, Domain
-from util import connect_from_config
-
+'''load-certs: A tool to download certificates from certificate transparency logsself.
+'''
+from datetime import datetime, timedelta
+import pprint
 import sys
 import time
-import pprint
-from datetime import datetime, timedelta
-
-from tqdm import tqdm
-
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-import dateutil.parser as parser
-
-from pymodm.connection import connect
-from pymodm import context_managers
 
 from admiral.celery import celery
 from admiral.certs.tasks import summary_by_domain, cert_by_id
 from celery import group
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+import dateutil.parser as parser
+from pymodm.connection import connect
+from pymodm import context_managers
+from tqdm import tqdm
 
+from models import Cert, Agency, Domain
+from util import connect_from_config
+
+# Globals
 PP = pprint.PrettyPrinter(indent=4)
 EARLIEST_EXPIRED_DATE = parser.parse('2018-10-01')
 
 
 def trim_domains(domains):  # TODO make this more robust
+    '''Creates a set of parent domain names from a collection of domain names.
+
+    Arguments:
+    domains -- a collection of domain strings
+
+    Returns a set of trimmed domain names, converted to lowercase
+    '''
     trimmed = set()
     for domain in domains:
         domain = domain.lower()     # Ensure all domains are lowercase
@@ -39,6 +45,9 @@ def trim_domains(domains):  # TODO make this more robust
 def get_earliest_sct(xcert):
     '''Calculate the earliest time this certificate was logged to a CT log.
     If it was not logged by the CA, then the not_before time is returned.
+
+    Arguments:
+    xcert -- an x509 certificate object
 
     Returns (datetime, bool):
         datetime: the earliest calculated date.
@@ -56,6 +65,11 @@ def get_earliest_sct(xcert):
 
 
 def is_poisioned(xcert):
+    '''Determine if an x509 certificate has a precertificate poision extensions.
+
+    Arguments:
+    xcert -- an x509 certificate object
+    '''
     try:
         xcert.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.PRECERT_POISON)
@@ -65,6 +79,13 @@ def is_poisioned(xcert):
 
 
 def get_sans_set(xcert):
+    '''Extract the set of subjects from the SAN extension.
+
+    Arguments:
+    xcert -- an x509 certificate object
+
+    Returns a set of strings containing the subjects
+    '''
     try:
         san = xcert.extensions.get_extension_for_oid(
             x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
@@ -81,6 +102,15 @@ def get_sans_set(xcert):
 
 
 def make_cert_from_pem(pem):
+    '''Creates a Cert model object from a PEM certificate string.
+
+    Arguments:
+    pem -- PEM encoded certificate
+
+    Returns (cert, precert):
+        cert: an x509 certificate object
+        precert: a boolean, True if this is a precertificate, False otherwise
+    '''
     xcert = x509.load_pem_x509_certificate(
         bytes(pem, 'utf-8'), default_backend())
     dns_names = get_sans_set(xcert)
@@ -101,6 +131,11 @@ def make_cert_from_pem(pem):
 
 
 def cert_id_exists_in_database(log_id):
+    '''Checks if a CT log ID already exists in the either of the certificate
+    collectionsself.
+
+    Returns True if the id exists, False otherwise
+    '''
     c = Cert.objects.raw({'_id': log_id})
     if c.count() > 0:
         return True
@@ -112,6 +147,15 @@ def cert_id_exists_in_database(log_id):
 
 
 def get_new_log_ids(domain, max_expired_date):
+    '''Generates a sequence of new CT Log IDs for a given domain, and exipration
+    window.
+
+    Arguments:
+    domain -- the domain name to query
+    max_expired_date -- a date to filter out expired certificates
+
+    Yields a sequence of new, unique, log IDs.
+    '''
     tqdm.write(f'requesting certificate list for: {domain}')
     expired = domain != 'nasa.gov'  # NASA is breaking the CT Log
     cert_list = summary_by_domain.delay(
@@ -139,6 +183,15 @@ def get_new_log_ids(domain, max_expired_date):
 
 
 def group_update_domain(domain, max_expired_date):
+    '''Creates tasks to download all new certificates that expire after
+    max_expired_date in parallel.
+
+    Arguments:
+    domain -- domain name to query
+    max_expired_date -- a date to filter out expired certificates
+
+    Returns the number of certificates imported.
+    '''
     signatures = []
     for log_id in get_new_log_ids(domain.domain, max_expired_date):
         signatures.append(cert_by_id.s(log_id))
@@ -165,8 +218,6 @@ def group_update_domain(domain, max_expired_date):
 def main():
     connect_from_config()
 
-    # we don't want certs before this date.  They're too old.
-
     query_set = Domain.objects.all()
     print(f'{query_set.count()} domains to process')
     # TODO set batch_size lower, cursor is timing out
@@ -182,7 +233,8 @@ def main():
         tqdm.write(f'domain #{c}')
         new_count = group_update_domain(domain, EARLIEST_EXPIRED_DATE)
         total_new_count += new_count
-        tqdm.write(f'{new_count} certificates were imported for {domain.domain}')
+        tqdm.write(
+            f'{new_count} certificates were imported for {domain.domain}')
     print(f'{total_new_count} certificates were imported for {len(domains)} domains.')
 
     import IPython; IPython.embed()  # <<< BREAKPOINT >>>
