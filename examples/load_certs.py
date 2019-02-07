@@ -50,7 +50,7 @@ def get_earliest_sct(xcert):
 
 
 def is_poisioned(xcert):
-    """Determine if an x509 certificate has a precertificate poision extensions.
+    """Determine if an x509 certificate has a precertificate poision extension.
 
     Arguments:
     xcert -- an x509 certificate object
