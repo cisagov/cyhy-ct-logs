@@ -23,25 +23,6 @@ from util import connect_from_config
 PP = pprint.PrettyPrinter(indent=4)
 EARLIEST_EXPIRED_DATE = parser.parse('2018-10-01')
 
-
-def trim_domains(domains):  # TODO make this more robust
-    '''Creates a set of parent domain names from a collection of domain names.
-
-    Arguments:
-    domains -- a collection of domain strings
-
-    Returns a set of trimmed domain names, converted to lowercase
-    '''
-    trimmed = set()
-    for domain in domains:
-        domain = domain.lower()     # Ensure all domains are lowercase
-        if domain.endswith('.fed.us'):
-            trimmed.add('.'.join(domain.split('.')[-3:]))
-        else:
-            trimmed.add('.'.join(domain.split('.')[-2:]))
-    return trimmed
-
-
 def get_earliest_sct(xcert):
     '''Calculate the earliest time this certificate was logged to a CT log.
     If it was not logged by the CA, then the not_before time is returned.
@@ -126,7 +107,6 @@ def make_cert_from_pem(pem):
     cert.sct_exists = sct_exists
     cert.pem = pem
     cert.subjects = dns_names
-    cert.trimmed_subjects = trim_domains(dns_names)
     return cert, is_poisioned(xcert)
 
 
@@ -217,27 +197,27 @@ def group_update_domain(domain, max_expired_date):
 
 def main():
     connect_from_config()
+    with context_managers.switch_connection(Domain, 'production'):
+        query_set = Domain.objects.all()
+        print(f'{query_set.count()} domains to process')
+        # TODO set batch_size lower, cursor is timing out
+        domains = list(query_set.all())
+        c = 0
+        skip_to = 0
+        total_new_count = 0
+        for domain in tqdm(domains, desc='Domains', unit='domain'):
+            c += 1
+            if c < skip_to:
+                continue
+            tqdm.write('-' * 80)
+            tqdm.write(f'domain #{c}')
+            new_count = group_update_domain(domain, EARLIEST_EXPIRED_DATE)
+            total_new_count += new_count
+            tqdm.write(
+                f'{new_count} certificates were imported for {domain.domain}')
+        print(f'{total_new_count} certificates were imported for {len(domains)} domains.')
 
-    query_set = Domain.objects.all()
-    print(f'{query_set.count()} domains to process')
-    # TODO set batch_size lower, cursor is timing out
-    domains = list(query_set.all())
-    c = 0
-    skip_to = 0
-    total_new_count = 0
-    for domain in tqdm(domains, desc='Domains', unit='domain'):
-        c += 1
-        if c < skip_to:
-            continue
-        tqdm.write('-' * 80)
-        tqdm.write(f'domain #{c}')
-        new_count = group_update_domain(domain, EARLIEST_EXPIRED_DATE)
-        total_new_count += new_count
-        tqdm.write(
-            f'{new_count} certificates were imported for {domain.domain}')
-    print(f'{total_new_count} certificates were imported for {len(domains)} domains.')
-
-    import IPython; IPython.embed()  # <<< BREAKPOINT >>>
+        import IPython; IPython.embed()  # <<< BREAKPOINT >>>
 
 
 if __name__ == '__main__':
