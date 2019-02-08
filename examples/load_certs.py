@@ -218,7 +218,7 @@ def main():
             total_new_count += new_count
             tqdm.write(
                 f'{new_count} certificates were imported for {domain.domain}')
-        print(f'{total_new_count} certificates were imported for'
+        print(f'{total_new_count} certificates were imported for '
               f'{len(domains)} domains.')
 
         import IPython; IPython.embed()  # noqa: E702 <<< BREAKPOINT >>>
