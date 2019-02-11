@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages # noqa 
 
 setup(
     name='admiral',
@@ -15,10 +15,11 @@ setup(
     },
     license='LICENSE.txt',
     description='The Admiral',
-    #long_description=open('README.md').read(),
+    # long_description=open('README.md').read(),
     install_requires=[
         "celery >= 4.2.0",
-        "redis == 2.10.6", # pinned due to https://github.com/celery/celery/issues/5175
+        # redis pinned due to https://github.com/celery/celery/issues/5175
+        "redis == 2.10.6",
         "docopt >= 0.6.2",
         "PyYAML >= 3.12",
         "schedule >= 0.4.2",
@@ -27,7 +28,7 @@ setup(
         "cryptography >= 2.4.2",
         "dnspython",
         "python-dateutil >= 2.7.5",
-        "pytest >= 4.1.1",  #TODO get pip install -e to pickup tests_require
+        "pytest >= 4.1.1",  # TODO get pip install -e to pickup tests_require
         "pymodm >= 0.4.1",
         "tqdm >= 4.30.0",
         "mock"
