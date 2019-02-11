@@ -15,7 +15,7 @@ PP = pprint.PrettyPrinter(indent=4)
 
 @pytest.fixture(scope="module")
 def celery():
-    """Celery app fixture."""
+    """Celery app test fixture."""
     from admiral.celery import celery
     return celery
 
