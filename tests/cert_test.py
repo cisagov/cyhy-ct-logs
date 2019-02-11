@@ -1,26 +1,36 @@
 #!/usr/bin/env pytest -vs
 
+"""Tests for Certificate tasks."""
+
 import pprint
 
 import pytest
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
-from admiral.certs.tasks import *
+from admiral.certs.tasks import summary_by_domain, cert_by_id
 
 PP = pprint.PrettyPrinter(indent=4)
 
+
 @pytest.fixture(scope="module")
 def celery():
+    """Celery app fixture."""
     from admiral.celery import celery
     return celery
 
+
 class TestCerts:
-    #@pytest.mark.filterwarnings("ignore:'async' and 'await'")
+    """Test certificate transparency tasks."""
+
+    # @pytest.mark.filterwarnings("ignore:'async' and 'await'")
     def test_end_to_end(self, celery):
+        """Perform and end-to-end test of the certificate log tasks."""
         summary = summary_by_domain.delay('cyber.dhs.gov')
-        assert summary.get(timeout=60) != None, 'Summary result should not be None'
-        assert len(summary.get()) > 0, 'Summary should return at least one result'
+        assert summary.get(
+            timeout=60) is not None, 'Summary result should not be None'
+        assert len(summary.get()) > 0, \
+            'Summary should return at least one result'
         PP.pprint(summary.get())
         print(f'received {len(summary.get())} summary records')
 
@@ -31,8 +41,6 @@ class TestCerts:
         pem = first_cert.get(timeout=60)
         print('done')
 
-        cert = x509.load_pem_x509_certificate(bytes(pem, 'utf-8'), default_backend())
+        cert = x509.load_pem_x509_certificate(
+            bytes(pem, 'utf-8'), default_backend())
         print(f'certificate serial number: {cert.serial_number}')
-        # cert.subject.get_attributes_for_oid(cryptography.x509.oid.NameOID.COMMON_NAME)[0].value
-        # alt_names = cert.extensions.get_extension_for_oid(cryptography.x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME).value
-        # alt_names.get_values_for_type(cryptography.x509.DNSName)
