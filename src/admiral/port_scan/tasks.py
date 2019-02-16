@@ -58,8 +58,8 @@ def up_scan(ip):
     # TODO: ICMP Timestamp and Address Mask pings are only valid for IPv4.
     v6_flag = '-6 ' if valid_ip.version == 6 else ''
     ports = ','.join(str(i) for i in QUICK_PORTS)
-    nmap_command = f'sudo nmap {v6_flag}{valid_ip} --stats-every 60 -oX - -n' \
-                   f'-sn -T4 --host-timeout 15m -PE -PP -PS{ports}'
+    nmap_command = f'sudo nmap {v6_flag}{valid_ip} --stats-every 60 -oX - ' \
+                   f'-n -sn -T4 --host-timeout 15m -PE -PP -PS{ports}'
     completed_process = run_it(nmap_command)
     xml_string = completed_process.stdout.decode()
     data = bf.data(fromstring(xml_string))
