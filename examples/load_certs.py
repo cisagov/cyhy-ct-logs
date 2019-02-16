@@ -10,7 +10,7 @@ Usage:
   load-certs --version
 
 Options:
-  -s --skip=<count>     Skip count domains and resume [default=0]
+  -s --skip=<count>     Skip count domains and resume [default: 0]
   -v --verbose          Print more detailed output
 """
 
@@ -243,20 +243,19 @@ def load_certs(domains, verbose=False):
 def main():
     """Start of program."""
     from docopt import docopt
-    args = docopt(__doc__, version='v0.0.1')
+    args = docopt(__doc__, version='v0.0.2')
     skip_to = int(args['--skip'])
     connect_from_config()
-    with context_managers.switch_connection(Domain, 'production'):
-        query_set = Domain.objects.all()
-        print(f'{query_set.count()} domains to process')
-        # TODO set batch_size lower, cursor is timing out
-        domains = list(query_set.all())
-        # user requested we skip some domains
-        if skip_to > 0:
-            domains = domains[skip_to:]
-        total_new_count = load_certs(domains, args['--verbose'])
-        print(f'{total_new_count} certificates were imported for '
-              f'{len(domains)} domains.')
+    query_set = Domain.objects.all()
+    print(f'{query_set.count()} domains to process')
+    # TODO set batch_size lower, cursor is timing out
+    domains = list(query_set.all())
+    # user requested we skip some domains
+    if skip_to > 0:
+        domains = domains[skip_to:]
+    total_new_count = load_certs(domains, args['--verbose'])
+    print(f'{total_new_count} certificates were imported for '
+          f'{len(domains)} domains.')
 
 
 if __name__ == '__main__':
