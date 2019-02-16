@@ -64,7 +64,6 @@ To protect against inadvertent commit of secrets to the repository:
 ## Monitoring
 The following web services are started for monitoring the underlying components:
 
-- CyHy API:        http://localhost:5000
 - Celery Flower:   http://localhost:5555
 - Mongo Express:   http://localhost:8081
 - Redis Commander: http://localhost:8082

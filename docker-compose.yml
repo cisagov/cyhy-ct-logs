@@ -77,17 +77,6 @@ services:
     ports:
       - "5555:5555"
 
-  api-server:
-    build:
-      context: .
-      dockerfile: Dockerfile-api-server
-    image: cyhy-api-server
-    init: true
-    volumes: # map for development only, comment out otherwise
-     - ./src-api/cyhy_api:/usr/src/cyhy_api/cyhy_api
-    ports:
-      - "5000:5000"
-
   cert-worker:
     <<: *admiral-template
     environment:
