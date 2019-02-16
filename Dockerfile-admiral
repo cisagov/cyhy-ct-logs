@@ -17,7 +17,7 @@ RUN apk update && apk add sudo nmap nmap-scripts python3=3.6.8-r1 py3-pip
 RUN echo "con ALL=(root) NOPASSWD: /usr/bin/nmap" > /etc/sudoers.d/con_nmap && chmod 0440 /etc/sudoers.d/con_nmap
 RUN pip3 install --upgrade pip
 
-# compiler python cryptography package and cleanup
+# compile python cryptography package and cleanup
 RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev && \
     pip3 install cryptography && \
     apk del gcc # musl-dev python3-dev libffi-dev openssl-dev
