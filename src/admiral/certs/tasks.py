@@ -20,7 +20,7 @@ DOMAIN_NAME_RE = re.compile(
                             requests.exceptions.HTTPError),
              retry_backoff=True,
              retry_jitter=True,
-             retry_kwargs={'max_retries': 8})
+             retry_kwargs={'max_retries': 16})
 def summary_by_domain(domain, subdomains=True, expired=False):
     """Fetch a summary of the certificates in the log.
 
@@ -58,7 +58,7 @@ def summary_by_domain(domain, subdomains=True, expired=False):
                             requests.exceptions.HTTPError),
              retry_backoff=True,
              retry_jitter=True,
-             retry_kwargs={'max_retries': 8})
+             retry_kwargs={'max_retries': 16})
 def cert_by_id(id):
     """Fetch a certificate by log ID."""
     logger.info(f'Fetching cert data from CT log for id: {id}.')
