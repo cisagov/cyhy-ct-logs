@@ -20,8 +20,8 @@ x-admiral-template: &admiral-template
     - source: admiral_yml
   volumes:
    - ./src/admiral:/usr/src/admiral/admiral
-   - ./tests:/home/con/tests
-   - ./examples:/home/con/examples
+   - ./tests:/home/cisa/tests
+   - ./examples:/home/cisa/examples
 
 services:
   celery-shell:

@@ -4,17 +4,17 @@ FROM alpine:edge
 #TODO Can't use 3.7 until: https://github.com/celery/celery/issues/4849
 MAINTAINER Mark Feldhousen <mark.feldhousen@trio.dhs.gov>
 
-ARG CON_UID=421
+ARG CISA_UID=421
 ARG INSTALL_IPYTHON="Yes Please"
-ARG CON_SRC="/usr/src"
-ENV CON_HOME="/home/con" \
+ARG CISA_SRC="/usr/src"
+ENV CISA_HOME="/home/cisa" \
     ADMIRAL_CONFIG_FILE="/run/secrets/admiral_yml" \
     ADMIRAL_CONFIG_SECTION="dev-mode" \
     ADMIRAL_WORKER_NAME="dev"
 
-RUN addgroup -S -g ${CON_UID} con && adduser -S -u ${CON_UID} -G con con && mkdir -p ${CON_HOME} && chown -R con:con ${CON_HOME}
+RUN addgroup -S -g ${CISA_UID} cisa && adduser -S -u ${CISA_UID} -G cisa cisa && mkdir -p ${CISA_HOME} && chown -R cisa:cisa ${CISA_HOME}
 RUN apk update && apk add sudo nmap nmap-scripts python3=3.6.8-r1 py3-pip
-RUN echo "con ALL=(root) NOPASSWD: /usr/bin/nmap" > /etc/sudoers.d/con_nmap && chmod 0440 /etc/sudoers.d/con_nmap
+RUN echo "cisa ALL=(root) NOPASSWD: /usr/bin/nmap" > /etc/sudoers.d/cisa_nmap && chmod 0440 /etc/sudoers.d/cisa_nmap
 RUN pip3 install --upgrade pip
 
 # compile python cryptography package and cleanup
@@ -24,11 +24,11 @@ RUN apk add gcc musl-dev python3-dev libffi-dev openssl-dev && \
 
 RUN if [ -n "${INSTALL_IPYTHON}" ]; then pip install ipython; fi
 
-WORKDIR ${CON_SRC}
+WORKDIR ${CISA_SRC}
 
 COPY src admiral
 RUN pip install -e admiral
 
-USER con
-WORKDIR ${CON_HOME}
+USER cisa
+WORKDIR ${CISA_HOME}
 ENTRYPOINT ["admiral"]
