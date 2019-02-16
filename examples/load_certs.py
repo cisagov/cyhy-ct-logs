@@ -5,13 +5,13 @@ This tool will download CT Logs via celery tasks and store them in a mongo
 database.
 
 Usage:
-  load-certs [options] [--skip=<count>]
+  load-certs [options] [--skipto=<domain>]
   load-certs (-h | --help)
   load-certs --version
 
 Options:
-  -s --skip=<count>     Skip count domains and resume [default: 0]
-  -v --verbose          Print more detailed output
+  -s --skipto=<domain>     Skip to domain and continue
+  -v --verbose             Print more detailed output
 """
 
 from datetime import datetime
@@ -222,12 +222,18 @@ def group_update_domain(domain, max_expired_date, verbose=False):
     return len(job.tasks)
 
 
-def load_certs(domains, verbose=False):
+def load_certs(domains, skip_to=None, verbose=False):
     """Load new certificates for the domain list."""
     total_new_count = 0
     with tqdm(domains, unit='domain') as pbar:
         for domain in pbar:
             pbar.set_description('%20s' % domain.domain)
+            # skip to requested domain
+            if skip_to is not None:
+                if skip_to == domain.domain:
+                    skip_to = None
+                else:
+                    continue
             if verbose:
                 tqdm.write('-' * 80)
             new_count = group_update_domain(domain, EARLIEST_EXPIRED_DATE,
@@ -244,16 +250,12 @@ def main():
     """Start of program."""
     from docopt import docopt
     args = docopt(__doc__, version='v0.0.2')
-    skip_to = int(args['--skip'])
     connect_from_config()
     query_set = Domain.objects.all()
     print(f'{query_set.count()} domains to process')
     # TODO set batch_size lower, cursor is timing out
     domains = list(query_set.all())
-    # user requested we skip some domains
-    if skip_to > 0:
-        domains = domains[skip_to:]
-    total_new_count = load_certs(domains, args['--verbose'])
+    total_new_count = load_certs(domains, args['--skipto'], args['--verbose'])
     print(f'{total_new_count} certificates were imported for '
           f'{len(domains)} domains.')
 
