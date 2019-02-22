@@ -40,7 +40,7 @@ def summary_by_domain(domain, subdomains=True, expired=False):
     logger.info(f'Fetching certs from CT log for: {wildcard_param}{domain}')
     url = f'https://crt.sh/?Identity={wildcard_param}{domain}{expired_param}' \
           f'&output=json'
-    # TODO: make two queries
+
     req = requests.get(url, headers={'User-Agent': 'cyhy/2.0.0'})
 
     if req.ok:
