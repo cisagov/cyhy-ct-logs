@@ -67,3 +67,16 @@ The following web services are started for monitoring the underlying components:
 - Celery Flower:   http://localhost:5555
 - Mongo Express:   http://localhost:8081
 - Redis Commander: http://localhost:8082
+
+## License ##
+
+This project is in the worldwide [public domain](LICENSE.md).
+
+This project is in the public domain within the United States, and
+copyright and related rights in the work worldwide are waived through
+the [CC0 1.0 Universal public domain
+dedication](https://creativecommons.org/publicdomain/zero/1.0/).
+
+All contributions to this project will be released under the CC0
+dedication. By submitting a pull request, you are agreeing to comply
+with this waiver of copyright interest.
