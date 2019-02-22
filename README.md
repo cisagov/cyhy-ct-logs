@@ -3,6 +3,8 @@
 
 This project is a distributed implementation of the NCATS Cyber Hygiene system.
 
+[![Maintainability](https://api.codeclimate.com/v1/badges/838ed19f182c95ec6588/maintainability)](https://codeclimate.com/github/dhs-ncats/cyhy-ct-logs/maintainability)
+
 ## Status
 
 This project is currently under initial development.  The current focus is the implementation of certificate transparency monitoring.  
