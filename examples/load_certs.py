@@ -14,113 +14,22 @@ Options:
   -v --verbose             Print more detailed output
 """
 
-from datetime import datetime
 import pprint
 import time
 
 from admiral.celery import celery  # noqa: F401, inits on import
 from admiral.certs.tasks import summary_by_domain, cert_by_id
 from celery import group
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
 import dateutil.parser as parser
 from mongoengine import context_managers
 from tqdm import tqdm
 
-from models import Cert, Domain
+from admiral.model import Cert, Domain
 from admiral.util import connect_from_config
 
 # Globals
 PP = pprint.PrettyPrinter(indent=4)
 EARLIEST_EXPIRED_DATE = parser.parse("2018-10-01")
-
-
-def get_earliest_sct(xcert):
-    """Calculate the earliest time this certificate was logged to a CT log.
-
-    If it was not logged by the CA, then the not_before time is returned.
-
-    Arguments:
-    xcert -- an x509 certificate object
-
-    Returns (datetime, bool):
-        datetime: the earliest calculated date.
-        bool: True if an SCT was used, False otherwise
-    """
-    try:
-        earliest = datetime.max
-        scts = xcert.extensions.get_extension_for_class(
-            x509.PrecertificateSignedCertificateTimestamps
-        ).value
-        for sct in scts:
-            earliest = min(earliest, sct.timestamp)
-        return earliest, True
-    except x509.extensions.ExtensionNotFound:
-        return xcert.not_valid_before, False
-
-
-def is_poisioned(xcert):
-    """Determine if an x509 certificate has a precertificate poision extension.
-
-    Arguments:
-    xcert -- an x509 certificate object
-    """
-    try:
-        xcert.extensions.get_extension_for_oid(x509.oid.ExtensionOID.PRECERT_POISON)
-        return True
-    except x509.extensions.ExtensionNotFound:
-        return False
-
-
-def get_sans_set(xcert):
-    """Extract the set of subjects from the SAN extension.
-
-    Arguments:
-    xcert -- an x509 certificate object
-
-    Returns a set of strings containing the subjects
-    """
-    try:
-        san = xcert.extensions.get_extension_for_oid(
-            x509.oid.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
-        ).value
-        dns_names = set(san.get_values_for_type(x509.DNSName))
-    except x509.extensions.ExtensionNotFound:
-        dns_names = set()
-    # not all subjects have CNs: https://crt.sh/?id=1009394371
-    for cn in xcert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME):
-        # TODO make sure the cn is a correct type
-        # what the hell is going on here: https://crt.sh/?id=174654356
-        # ensure the cn is in the dns_names
-        dns_names.add(cn.value)
-    return dns_names
-
-
-def make_cert_from_pem(pem):
-    """Create a Cert model object from a PEM certificate string.
-
-    Arguments:
-    pem -- PEM encoded certificate
-
-    Returns (cert, precert):
-        cert: an x509 certificate object
-        precert: a boolean, True if this is a precertificate, False otherwise
-    """
-    xcert = x509.load_pem_x509_certificate(bytes(pem, "utf-8"), default_backend())
-    dns_names = get_sans_set(xcert)
-
-    sct_or_not_before, sct_exists = get_earliest_sct(xcert)
-
-    cert = Cert()
-    cert.serial = hex(xcert.serial_number)[2:]
-    cert.issuer = xcert.issuer.rfc4514_string()
-    cert.not_before = xcert.not_valid_before
-    cert.not_after = xcert.not_valid_after
-    cert.sct_or_not_before = sct_or_not_before
-    cert.sct_exists = sct_exists
-    cert.pem = pem
-    cert.subjects = dns_names
-    return cert, is_poisioned(xcert)
 
 
 def cert_id_exists_in_database(log_id):
@@ -210,7 +119,7 @@ def group_update_domain(domain, max_expired_date, verbose=False):
 
     # create x509 certificates from the results
     for task, pem in tasks_to_results:
-        cert, is_precert = make_cert_from_pem(pem)
+        cert, is_precert = Cert.from_pem(pem)
         cert.log_id = task.get("args")[0]  # get log_id from task
         if is_precert:
             # if this is a precert, we save to the precert collection
