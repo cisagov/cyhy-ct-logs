@@ -13,15 +13,15 @@ x-admiral-template: &admiral-template
   image: admiral
   init: true
   environment:
-    ADMIRAL_CONFIG_FILE: '/run/secrets/admiral_yml'
+    ADMIRAL_CONFIG_FILE: "/run/secrets/admiral.yml"
     ADMIRAL_CONFIG_SECTION: dev-mode
     ADMIRAL_WORKER_NAME: dev
   secrets:
     - source: admiral_yml
   volumes:
-   - ./src/admiral:/usr/src/admiral/admiral
-   - ./tests:/home/cisa/tests
-   - ./examples:/home/cisa/examples
+    - ./src/admiral:/usr/src/admiral/admiral
+    - ./tests:/home/cisa/tests
+    - ./examples:/home/cisa/examples
 
 services:
   celery-shell:
@@ -33,7 +33,9 @@ services:
     entrypoint: /bin/sh
     secrets:
       - source: admiral_yml
+        target: admiral.yml
       - source: mongo_yml
+        target: config.yml
 
   test:
     <<: *admiral-template
