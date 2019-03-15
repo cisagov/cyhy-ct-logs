@@ -18,6 +18,9 @@ x-admiral-template: &admiral-template
     ADMIRAL_WORKER_NAME: dev
   secrets:
     - source: admiral_yml
+      target: admiral.yml
+    - source: mongo_yml
+      target: config.yml
   volumes:
     - ./src/admiral:/usr/src/admiral/admiral
     - ./tests:/home/cisa/tests
@@ -31,11 +34,6 @@ services:
   bash:
     <<: *admiral-template
     entrypoint: /bin/sh
-    secrets:
-      - source: admiral_yml
-        target: admiral.yml
-      - source: mongo_yml
-        target: config.yml
 
   test:
     <<: *admiral-template
