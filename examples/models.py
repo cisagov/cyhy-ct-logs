@@ -1,63 +1,82 @@
+"""Mongo document models for Certificate documents."""
+from mongoengine import Document, EmbeddedDocument
+from mongoengine.fields import (
+    BooleanField,
+    DateTimeField,
+    EmbeddedDocumentField,
+    IntField,
+    ListField,
+    StringField,
+)
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
-from pymodm import MongoModel, EmbeddedMongoModel, fields
-from pymongo.write_concern import WriteConcern
-from pymongo.operations import IndexModel
-from pymongo import ASCENDING
+from admiral.util import trim_domains
 
-from util import trim_domains
 
-# https://tools.ietf.org/html/rfc5280#section-4.1.2.2
+class Cert(Document):
+    """Certificate mongo document model."""
 
-class Cert(MongoModel):
-    log_id = fields.IntegerField(primary_key=True)
-    serial = fields.CharField()  # 20 octets
-    issuer = fields.CharField()
-    not_before = fields.DateTimeField()
-    not_after = fields.DateTimeField()
-    sct_or_not_before = fields.DateTimeField()
-    sct_exists = fields.BooleanField()
-    pem = fields.CharField()
-    subjects = fields.ListField(fields.CharField())
-    trimmed_subjects = fields.ListField(fields.CharField())
+    log_id = IntField(primary_key=True)
+    # serial is 20 octets, see: https://tools.ietf.org/html/rfc5280#section-4.1.2.2
+    serial = StringField()
+    issuer = StringField()
+    not_before = DateTimeField()
+    not_after = DateTimeField()
+    sct_or_not_before = DateTimeField()
+    sct_exists = BooleanField()
+    pem = StringField()
+    _subjects = ListField(field=StringField(), db_field="subjects")
+    _trimmed_subjects = ListField(field=StringField(), db_field="trimmed_subjects")
 
-    def save(self, *args, **kwargs):
-        # ensure all subjects are lowercase and unique
-        self.subjects = {i.lower() for i in self.subjects}
-        # calculate the correct value of trimmed_subjects
+    meta = {
+        "collection": "certs",
+        "indexes": [
+            "+_subjects",
+            "+_trimmed_subjects",
+            {"fields": ("+issuer", "+serial"), "unique": True},
+        ],
+    }
+
+    @property
+    def subjects(self):
+        """Getter for subjects."""
+        return self._subjects
+
+    @subjects.setter
+    def subjects(self, values):
+        """Subjects setter.
+
+        Normalizes inputs, and dervices trimmed_subjects
+        """
+        self.subjects = {i.lower() for i in values}
         self.trimmed_subjects = trim_domains(self.subjects)
-        super().save(*args, **kwargs)
+
+    @property
+    def trimmed_subjects(self):
+        """Read-only property.  This is derived from the subjects."""
+        return self._trimmed_subjects
 
     def to_x509(self):
-        return x509.load_pem_x509_certificate(bytes(self.pem, 'utf-8'), default_backend())
-
-    class Meta:
-        indexes = [IndexModel(keys=[
-            ('issuer', ASCENDING),
-            ('serial', ASCENDING)], unique=True),
-            IndexModel(keys=[('subjects', ASCENDING)]),
-            IndexModel(keys=[('trimmed_subjects', ASCENDING)])]
-        write_concern = WriteConcern(j=True)
-        collection_name = 'certs'
-        final = True
+        """Return an x509 subject for this certificate."""
+        return x509.load_pem_x509_certificate(
+            bytes(self.pem, "utf-8"), default_backend()
+        )
 
 
-class Agency(EmbeddedMongoModel):
-    id = fields.CharField()
-    name = fields.CharField()
+class Agency(EmbeddedDocument):
+    """Embedded document in a domain representing the owning agency."""
 
-    class Meta:
-        final = True
+    id = StringField()
+    name = StringField()
 
 
-class Domain(MongoModel):
-    domain = fields.CharField(primary_key=True)
-    agency = fields.EmbeddedDocumentField(Agency) # deprecated soon: EmbeddedMongoModelField
-    cyhy_stakeholder = fields.BooleanField()
-    scan_date = fields.DateTimeField()
+class Domain(Document):
+    """Domain mongo document model."""
 
-    class Meta:
-        write_concern = WriteConcern(j=True)
-        collection_name = 'domains'
-        final = True
+    domain = StringField(primary_key=True)
+    agency = EmbeddedDocumentField(Agency)
+    cyhy_stakeholder = BooleanField()
+    scan_date = DateTimeField()
+
+    meta = {"collection": "domains"}
