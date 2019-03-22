@@ -1,58 +1,84 @@
 
-Swarming
-===
-`docker stack deploy admiral --compose-file docker-compose.yml`
+# Cyber Hygiene Distributed
 
-If you need no more than one replica of each service you can start the composition with:
+This project is a distributed implementation of the NCATS Cyber Hygiene system.
 
-`docker-compose up`
+[![Maintainability](https://api.codeclimate.com/v1/badges/838ed19f182c95ec6588/maintainability)](https://codeclimate.com/github/dhs-ncats/cyhy-ct-logs/maintainability)
 
-- Celery Flower:   http://localhost:5555
-- Mongo Express:   http://localhost:8081
-- Redis Commander: http://localhost:8082
+## Status
+
+This project is currently under initial development.  The current focus is the implementation of certificate transparency monitoring.  
+
+## Requirements
+
+This project requires a [Docker](https://www.docker.com) installation.
+
+## Installation and Execution
+
+- Build the docker image:
+  - `docker-compose build`
+- Change the credentials in the following configuration files:
+  - `secrets/admiral.yml`
+  - `secrets/redis.conf`
+  - `docker-compose.yml`
+- Start the composition:
+  - `docker-compose up`
+  - alternately it can be started in [swarm mode](https://docs.docker.com/engine/swarm/): `docker stack deploy admiral --compose-file docker-compose.yml`
+- Monitor the system:
+  - http://localhost:5555
+- Optional: Run the code tests
+  - `docker-compose -f docker-compose-dev.yml run test`
 
 
-Debugging Tips
-===
+## Development and Debugging
 
-To get a shell in a running container:
+A separate `docker-compose-dev.yml` file is provided to support development and
+testing.  Using this composition, a container can be started in a few different modes:
 
-`docker-compose exec admiral /bin/sh`
+To start up an IPython session with a configured Celery app:
+
+`docker-compose -f docker-compose-dev.yml run celery-shell`
+
+To start up a development container with a bash shell:
+
+`docker-compose -f docker-compose-dev.yml run bash`
+
+To run all unit and system tests:
+
+`docker-compose -f docker-compose-dev.yml run test`
+
+Additional arguments can be passed to `pytest` when creating the container:
+
+`docker-compose -f docker-compose-dev.yml run test -vs tests/scan_test.py`
+
+To access a mongo shell:
+
+`docker-compose exec mongo mongo admin -u root -p`
 
 To get a shell in a stopped or crashed container:
 
 `docker run -it --rm --entrypoint=sh admiral`
 
-Current debugging stuff
-```
-docker-compose exec admiral admiral -i
-from admiral.port_scan.tasks import *
-from admiral.certs.tasks import *
-summary = summary_by_domain.delay('cyber.dhs.gov')
-id = summary.wait()[0]['min_cert_id']
-first_cert = cert_by_id.delay(id)
-ns1 = up_scan.delay('10.28.20.200')
-ns2 = port_scan.delay('10.28.20.200')
-a.backend.get(a.backend.get_key_for_task(a.id))
-```
+To protect against inadvertent commit of secrets to the repository:
 
+`git update-index --assume-unchanged secrets/*`
 
-Celery Magic
-===
-Get a result later:
-```
-In [23]: res = AsyncResult('7b1f10ae-fddc-4a79-9afc-4aaafb18623f')                                                                                            
-In [24]: res.get()                   
-Out[24]: 11
-```
+## Monitoring
+The following web services are started for monitoring the underlying components:
 
-TODO
-====
-* Make a shared task module -or-
-  * make using send_task easy, or signatures
-  * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.Celery.send_task
-  * http://docs.celeryproject.org/en/latest/reference/celery.html#celery.signature
-* The interactive mode is really what we want for a work producer
-* The non-interactive mode is our worker configuration
-* set task_send_sent_event for monitoring (added.)
-* monitor events and make a super sexy display
+- Celery Flower:   http://localhost:5555
+- Mongo Express:   http://localhost:8081
+- Redis Commander: http://localhost:8082
+
+## License ##
+
+This project is in the worldwide [public domain](LICENSE.md).
+
+This project is in the public domain within the United States, and
+copyright and related rights in the work worldwide are waived through
+the [CC0 1.0 Universal public domain
+dedication](https://creativecommons.org/publicdomain/zero/1.0/).
+
+All contributions to this project will be released under the CC0
+dedication. By submitting a pull request, you are agreeing to comply
+with this waiver of copyright interest.
