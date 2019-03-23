@@ -1,13 +1,8 @@
+# Certificate Transparency Monitor
 
-# Cyber Hygiene Distributed
+This project implements a distributed certificate transparency log harvester.
 
-This project is a distributed implementation of the NCATS Cyber Hygiene system.
-
-[![Maintainability](https://api.codeclimate.com/v1/badges/838ed19f182c95ec6588/maintainability)](https://codeclimate.com/github/dhs-ncats/cyhy-ct-logs/maintainability)
-
-## Status
-
-This project is currently under initial development.  The current focus is the implementation of certificate transparency monitoring.  
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/cisagov/cyhy-ct-logs.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-ct-logs/alerts/)
 
 ## Requirements
 
@@ -29,11 +24,10 @@ This project requires a [Docker](https://www.docker.com) installation.
 - Optional: Run the code tests
   - `docker-compose -f docker-compose-dev.yml run test`
 
-
 ## Development and Debugging
 
 A separate `docker-compose-dev.yml` file is provided to support development and
-testing.  Using this composition, a container can be started in a few different modes:
+testing. Using this composition, a container can be started in a few different modes:
 
 To start up an IPython session with a configured Celery app:
 
@@ -64,13 +58,14 @@ To protect against inadvertent commit of secrets to the repository:
 `git update-index --assume-unchanged secrets/*`
 
 ## Monitoring
+
 The following web services are started for monitoring the underlying components:
 
-- Celery Flower:   http://localhost:5555
-- Mongo Express:   http://localhost:8081
+- Celery Flower: http://localhost:5555
+- Mongo Express: http://localhost:8081
 - Redis Commander: http://localhost:8082
 
-## License ##
+## License
 
 This project is in the worldwide [public domain](LICENSE.md).
 
