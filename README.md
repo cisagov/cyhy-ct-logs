@@ -2,6 +2,8 @@
 
 This project implements a distributed certificate transparency log harvester.
 
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/cisagov/cyhy-ct-logs.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-ct-logs/context:python)
+[![Language grade: JavaScript](https://img.shields.io/lgtm/grade/javascript/g/cisagov/cyhy-ct-logs.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-ct-logs/context:javascript)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/cisagov/cyhy-ct-logs.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-ct-logs/alerts/)
 
 ## Requirements
