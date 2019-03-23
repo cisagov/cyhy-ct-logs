@@ -17,7 +17,7 @@ Options:
 import pprint
 import time
 
-from admiral.celery import celery  # noqa: F401, inits on import
+from admiral.celery import configure_app
 from admiral.certs.tasks import summary_by_domain, cert_by_id
 from celery import group
 import dateutil.parser as parser
@@ -159,11 +159,15 @@ def main():
     from docopt import docopt
 
     args = docopt(__doc__, version="v0.0.2")
+
+    # create database connection
     connect_from_config()
-    query_set = Domain.objects.all()
-    print(f"{query_set.count()} domains to process")
-    # TODO set batch_size lower, cursor is timing out
-    domains = list(query_set.all())
+
+    # configure celery
+    configure_app()
+
+    domains = Domain.objects.batch_size(1)
+    print(f"{domains.count()} domains to process")
     total_new_count = load_certs(domains, args["--skipto"], args["--verbose"])
     print(
         f"{total_new_count} certificates were imported for " f"{len(domains)} domains."
